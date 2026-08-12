@@ -436,3 +436,133 @@ tr {
   from { opacity: 0; transform: scale(0.95); }
   to { opacity: 1; transform: scale(1); }
 }
+
+.header-actions {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.user-info-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+/* Responsividade (Mobile) */
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+  
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.2rem;
+  }
+
+  .header-actions {
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    gap: 1rem;
+    width: 100%;
+  }
+
+  .user-info-block {
+    align-items: flex-start;
+  }
+  
+  /* Card Table para Mobile */
+  table, thead, tbody, th, td, tr {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  thead tr {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  }
+  
+  tr {
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0;
+  }
+  
+  td {
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative;
+    padding: 0.8rem 1rem 0.8rem 45% !important;
+    text-align: right !important;
+    min-height: 40px;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    white-space: normal !important;
+  }
+  
+  td:last-child {
+    border-bottom: none;
+  }
+  
+  td:before {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40%;
+    white-space: nowrap;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  
+  td:nth-of-type(1) {
+    padding-left: 1rem !important;
+    justify-content: flex-start;
+  }
+  td:nth-of-type(1):before {
+    content: "#";
+    position: static;
+    transform: none;
+    width: auto;
+    margin-right: 0.1rem;
+  }
+  td:nth-of-type(2):before { content: "Nome"; }
+  td:nth-of-type(3):before { content: "Gênero"; }
+  td:nth-of-type(4):before { content: "CPF"; }
+  td:nth-of-type(5):before { content: "Turma"; }
+  td:nth-of-type(6):before { content: "Idade"; }
+  td:nth-of-type(7):before { content: "Situação"; }
+  td:nth-of-type(8):before { content: "Responsável"; }
+  td:nth-of-type(9):before { content: "Observações"; }
+  
+  td[colspan="9"] {
+    padding: 1rem !important;
+    text-align: center !important;
+    justify-content: center;
+  }
+  td[colspan="9"]:before {
+    content: none !important;
+  }
+  
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .search-input {
+    width: 100%;
+  }
+  
+  .filters {
+    flex-wrap: wrap;
+  }
+}

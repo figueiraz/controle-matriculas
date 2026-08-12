@@ -397,7 +397,7 @@ function App() {
           <h1>Painel de Matrículas</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem', fontSize: '1.1rem', letterSpacing: '0.05em' }}>Unidade POA</p>
         </div>
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+        <div className="header-actions">
           {onlineUsers.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', background: 'rgba(16, 185, 129, 0.1)', padding: '0.5rem 0.8rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
               {onlineUsers.map(u => (
@@ -414,7 +414,7 @@ function App() {
             </div>
           )}
           
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+          <div className="user-info-block">
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                 Logado como: <strong style={{ color: 'var(--text-primary)' }}>{user?.email}</strong>
