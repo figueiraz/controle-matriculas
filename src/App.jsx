@@ -1,11 +1,16 @@
 import { useState, useMemo, useEffect } from 'react';
-import { collection, addDoc, updateDoc, doc, onSnapshot, setDoc } from "firebase/firestore";
-import { db } from './firebase';
+import { collection, addDoc, updateDoc, doc, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { db, auth } from './firebase';
 import { STATUS_COLORS, ROW_COLORS } from './mockData';
+import Login from './Login';
 
 function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [students, setStudents] = useState([]);
   const [responsaveisList, setResponsaveisList] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState([]);
   
   // Configurações
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -33,7 +38,63 @@ function App() {
   const [editValue, setEditValue] = useState('');
   const [copiedMsg, setCopiedMsg] = useState('');
 
+  // Estado para menu de contexto (Exclusão)
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, student: null });
+
   useEffect(() => {
+    const handleClickOutside = () => setContextMenu({ visible: false, x: 0, y: 0, student: null });
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      unsubscribeAuth();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user) return; // Só busca dados se estiver logado
+
+    const userPresenceRef = doc(db, "online_users", user.uid);
+    
+    // Atualiza a presença a cada 15 segundos (heartbeat)
+    const updatePresence = () => {
+      setDoc(userPresenceRef, {
+        email: user.email,
+        timestamp: new Date().toISOString()
+      });
+    };
+    
+    updatePresence();
+    const presenceInterval = setInterval(updatePresence, 15000);
+
+    const handleBeforeUnload = () => {
+      deleteDoc(userPresenceRef);
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Ouvir usuários online (com filtro de inatividade)
+    const unsubscribePresence = onSnapshot(collection(db, "online_users"), (snapshot) => {
+      const usersData = [];
+      const now = new Date().getTime();
+      
+      snapshot.forEach((d) => {
+        const data = d.data();
+        const lastSeen = new Date(data.timestamp).getTime();
+        // Só considera online quem pingou nos últimos 45 segundos
+        if (now - lastSeen < 45000) {
+          usersData.push({ uid: d.id, ...data });
+        }
+      });
+      setOnlineUsers(usersData);
+    });
+
     const unsubscribeAlunos = onSnapshot(collection(db, "alunos"), (snapshot) => {
       const studentsData = [];
       snapshot.forEach((doc) => {
@@ -49,10 +110,16 @@ function App() {
     });
 
     return () => {
+      // Ao deslogar ou desmontar, remove a presença e limpa os listeners
+      clearInterval(presenceInterval);
+      deleteDoc(userPresenceRef);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      unsubscribePresence();
       unsubscribeAlunos();
       unsubscribeSettings();
     };
-  }, []);
+  }, [user]);
+
 
   const filteredStudents = useMemo(() => {
     let result = students.filter(student => {
@@ -100,6 +167,46 @@ function App() {
       assinarTermo: students.filter(s => s.situacao === 'ASSINAR TERMO').length,
     };
   }, [students]);
+
+  const exportToCSV = () => {
+    if (filteredStudents.length === 0) {
+      alert("Nenhum aluno para exportar.");
+      return;
+    }
+
+    const headers = ["Nome", "Gênero", "CPF", "Turma", "Idade", "Situação", "Responsável", "Observações"];
+    
+    const escapeCsv = (str) => {
+      if (!str) return '""';
+      const safeStr = String(str).replace(/"/g, '""');
+      return `"${safeStr}"`;
+    };
+
+    const rows = filteredStudents.map(student => [
+      escapeCsv(student.nome),
+      escapeCsv(student.genero),
+      escapeCsv(student.cpf),
+      escapeCsv(student.turma),
+      escapeCsv(student.idade),
+      escapeCsv(student.situacao),
+      escapeCsv(student.responsavel),
+      escapeCsv(student.observacoes)
+    ]);
+
+    const csvContent = [
+      headers.join(";"),
+      ...rows.map(e => e.join(";"))
+    ].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Alunos_Exportados_${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const handleSaveNovo = async () => {
     if (!formData.nome.trim()) {
@@ -166,6 +273,28 @@ function App() {
   const handleKeyDown = (e, studentId, field) => {
     if (e.key === 'Enter') saveCell(studentId, field);
     else if (e.key === 'Escape') setEditingCell(null);
+  };
+
+  const handleContextMenu = (e, student) => {
+    e.preventDefault();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      student
+    });
+  };
+
+  const handleDeleteStudent = async (student) => {
+    if (window.confirm(`Tem certeza que deseja excluir o aluno ${student.nome || ''}? Esta ação não pode ser desfeita.`)) {
+      try {
+        await deleteDoc(doc(db, "alunos", student.id));
+        setContextMenu({ visible: false, x: 0, y: 0, student: null });
+      } catch (error) {
+        console.error("Erro ao excluir aluno:", error);
+        alert("Erro ao excluir aluno.");
+      }
+    }
   };
 
   const renderCell = (student, field, type = 'text', options = []) => {
@@ -252,18 +381,55 @@ function App() {
     );
   };
 
+  if (authLoading) {
+    return <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}><h2>Carregando...</h2></div>;
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
   return (
     <div className="container">
       <header className="header">
-        <h1>Painel de Matrículas</h1>
-        <button 
-          className="btn" 
-          style={{ padding: '0.5rem', borderRadius: '50%', width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}
-          onClick={() => setIsSettingsOpen(true)}
-          title="Configurações de Responsáveis"
-        >
-          <i className="fas fa-cog"></i>
-        </button>
+        <div>
+          <h1>Painel de Matrículas</h1>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem', fontSize: '1.1rem', letterSpacing: '0.05em' }}>Unidade POA</p>
+        </div>
+        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+          {onlineUsers.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', background: 'rgba(16, 185, 129, 0.1)', padding: '0.5rem 0.8rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              {onlineUsers.map(u => (
+                <div key={u.uid} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <span style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                    <span style={{ width: '8px', height: '8px', backgroundColor: '#10B981', borderRadius: '50%', boxShadow: '0 0 5px #10B981' }}></span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Online:</span>
+                  </span>
+                  <span style={{ fontSize: '0.85rem', color: '#10B981', fontWeight: '600' }} title={u.email}>
+                    {u.email.split('@')[0]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                Logado como: <strong style={{ color: 'var(--text-primary)' }}>{user?.email}</strong>
+              </span>
+              <button 
+                className="btn" 
+                style={{ padding: '0.4rem 1rem', backgroundColor: 'var(--danger-color)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}
+                onClick={() => signOut(auth)}
+                title="Sair do sistema"
+              >
+                <i className="fas fa-sign-out-alt"></i> Sair
+              </button>
+            </div>
+
+          </div>
+        </div>
       </header>
 
       <div className="stats-grid">
@@ -343,7 +509,17 @@ function App() {
           </div>
 
           <div className="filter-group">
-            <label>Responsável</label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              Responsável
+              <button 
+                type="button"
+                onClick={() => setIsSettingsOpen(true)}
+                style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.85rem', padding: 0 }}
+                title="Editar Responsáveis"
+              >
+                <i className="fas fa-pencil-alt"></i>
+              </button>
+            </label>
             <select className="filter-select" value={filters.responsavel} onChange={e => setFilters({...filters, responsavel: e.target.value})}>
               <option value="">Todos</option>
               {responsaveisList.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -351,19 +527,38 @@ function App() {
           </div>
 
           <div className="filter-group">
-            <label>Ordenar Por</label>
+            <label>Idade</label>
             <select className="filter-select" value={filters.ordenarPor} onChange={e => setFilters({...filters, ordenarPor: e.target.value})}>
-              <option value="nomeAsc">Nome (A-Z)</option>
-              <option value="idadeAsc">Idade (Crescente)</option>
-              <option value="idadeDesc">Idade (Decrescente)</option>
+              <option value="nomeAsc">Padrão</option>
+              <option value="idadeAsc">Mais Novo</option>
+              <option value="idadeDesc">Mais Velho</option>
             </select>
           </div>
+
+          <div className="filter-group">
+            <label>Resultados</label>
+            <div style={{ background: 'rgba(59, 130, 246, 0.2)', border: '1px solid var(--primary-color)', color: 'var(--text-primary)', padding: '0.6rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: '600', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+              {filteredStudents.length} {filteredStudents.length === 1 ? 'Aluno' : 'Alunos'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.5rem', marginTop: '1rem' }}>
+          <button 
+            className="btn" 
+            style={{ backgroundColor: 'var(--success-color)', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', fontWeight: 'bold' }}
+            onClick={exportToCSV}
+            title="Baixar planilha com os alunos listados abaixo"
+          >
+            <i className="fas fa-file-excel"></i> Exportar CSV (Excel)
+          </button>
         </div>
 
         <div className="table-wrapper">
           <table>
             <thead>
               <tr>
+                <th style={{ width: '30px', minWidth: '30px', maxWidth: '30px', textAlign: 'center', padding: '0' }}>#</th>
                 <th>Nome</th>
                 <th>Gênero</th>
                 <th>CPF</th>
@@ -380,15 +575,15 @@ function App() {
                 <tr 
                   style={{ backgroundColor: 'rgba(59, 130, 246, 0.05)', borderBottom: '2px solid var(--primary-color)', cursor: 'pointer', transition: 'all 0.2s' }} 
                   onClick={() => setIsAddingNew(true)}
-                  className="editable-cell"
                 >
-                  <td colSpan="8" style={{ padding: '1rem', color: 'var(--primary-color)', fontWeight: '600', textAlign: 'center' }}>
+                  <td colSpan="9" style={{ padding: '1rem', color: 'var(--primary-color)', fontWeight: '600', textAlign: 'center' }}>
                     + Adicionar Novo Aluno
                   </td>
                 </tr>
               ) : (
                 <>
                 <tr style={{ backgroundColor: 'rgba(59, 130, 246, 0.05)' }} title="Pressione ENTER para salvar ou ESC para cancelar">
+                  <td style={{ width: '30px', minWidth: '30px', maxWidth: '30px', textAlign: 'center', color: 'var(--text-secondary)', padding: '0' }}>-</td>
                   <td>
                     <input autoFocus type="text" className="inline-edit-input" placeholder="Digite o nome..." value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} onKeyDown={handleNewRowKeyDown} />
                   </td>
@@ -432,7 +627,7 @@ function App() {
                 </td>
               </tr>
               <tr style={{ backgroundColor: 'rgba(59, 130, 246, 0.05)', borderBottom: '2px solid var(--primary-color)' }}>
-                <td colSpan="8" style={{ padding: '0.75rem 1rem' }}>
+                <td colSpan="9" style={{ padding: '0.75rem 1rem' }}>
                   <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                     <button 
                       className="btn" 
@@ -457,11 +652,13 @@ function App() {
               )}
 
               {/* LISTA DE ALUNOS EXISTENTES */}
-              {filteredStudents.length > 0 ? filteredStudents.map(student => (
+              {filteredStudents.length > 0 ? filteredStudents.map((student, index) => (
                 <tr 
                   key={student.id} 
                   style={{ backgroundColor: ROW_COLORS[student.situacao] || 'transparent' }}
+                  onContextMenu={(e) => handleContextMenu(e, student)}
                 >
+                  <td style={{ width: '30px', minWidth: '30px', maxWidth: '30px', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-secondary)', padding: '0' }}>{index + 1}</td>
                   <td>{renderCell(student, 'nome')}</td>
                   <td>{renderCell(student, 'genero', 'select', ['MULHER', 'HOMEM', 'OUTRO'])}</td>
                   <td>{renderCell(student, 'cpf')}</td>
@@ -469,17 +666,33 @@ function App() {
                   <td>{renderCell(student, 'idade')}</td>
                   <td>{renderCell(student, 'situacao', 'select', ['MATRICULADO', 'DESISTENTE', 'ELIMINADO', 'REPROVADO', 'ASSINAR TERMO', 'DOCS PENDENTES'])}</td>
                   <td>{renderCell(student, 'responsavel', 'select', ['', ...responsaveisList])}</td>
-                  <td>{renderCell(student, 'observacoes')}</td>
+                  <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', minWidth: '200px', maxWidth: '350px' }}>{renderCell(student, 'observacoes')}</td>
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan="8" style={{textAlign: 'center', padding: '2rem'}}>Nenhum aluno encontrado com esses filtros.</td>
+                  <td colSpan="9" style={{textAlign: 'center', padding: '2rem'}}>Nenhum aluno encontrado com esses filtros.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Menu de Contexto */}
+      {contextMenu.visible && (
+        <div 
+          className="context-menu" 
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button 
+            className="context-menu-item danger" 
+            onClick={() => handleDeleteStudent(contextMenu.student)}
+          >
+            <i className="fas fa-trash-alt"></i> Excluir Aluno
+          </button>
+        </div>
+      )}
 
       {/* Toast de Feedback de Cópia */}
       {copiedMsg && (
