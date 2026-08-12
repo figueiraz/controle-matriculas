@@ -393,6 +393,7 @@ function App() {
     <div className="container">
       <header className="header">
         <div>
+          <img src="/logo-percorre.svg" alt="Instituto Percorre" style={{ height: '40px', marginBottom: '0.5rem' }} />
           <h1>Painel de Matrículas</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem', fontSize: '1.1rem', letterSpacing: '0.05em' }}>Unidade POA</p>
         </div>
@@ -546,7 +547,7 @@ function App() {
         <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.5rem', marginTop: '1rem' }}>
           <button 
             className="btn" 
-            style={{ backgroundColor: 'var(--success-color)', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', fontWeight: 'bold' }}
+            style={{ backgroundColor: '#059669', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.2rem', fontWeight: 'bold' }}
             onClick={exportToCSV}
             title="Baixar planilha com os alunos listados abaixo"
           >

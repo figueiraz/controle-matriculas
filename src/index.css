@@ -217,9 +217,6 @@ tr {
   transition: background 0.2s;
 }
 
-tr:hover {
-  background: rgba(255, 255, 255, 0.03) !important;
-}
 
 /* Inline Edit */
 .inline-edit-input {
