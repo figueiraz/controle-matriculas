@@ -59,7 +59,7 @@ export const STATUS_COLORS = {
   'MATRICULADO': 'var(--success-color)',
   'DESISTENTE': 'var(--danger-color)',
   'ELIMINADO': 'var(--danger-color)',
-  'REPROVADO': 'var(--danger-color)',
+
   'ASSINAR TERMO': 'var(--primary-color)',
   'DOCS PENDENTES': 'var(--warning-color)'
 };
@@ -69,6 +69,6 @@ export const ROW_COLORS = {
   'DOCS PENDENTES': 'rgba(245, 158, 11, 0.15)',   // Amarelo
   'DESISTENTE': 'rgba(239, 68, 68, 0.15)',        // Vermelho
   'ELIMINADO': 'rgba(239, 68, 68, 0.15)',         // Vermelho
-  'REPROVADO': 'rgba(239, 68, 68, 0.15)',         // Vermelho
+
   'ASSINAR TERMO': 'rgba(59, 130, 246, 0.15)'     // Azul
 };

@@ -612,7 +612,7 @@ function App() {
                     <option value="MATRICULADO">MATRICULADO</option>
                     <option value="DESISTENTE">DESISTENTE</option>
                     <option value="ELIMINADO">ELIMINADO</option>
-                    <option value="REPROVADO">REPROVADO</option>
+
                     <option value="ASSINAR TERMO">ASSINAR TERMO</option>
                     <option value="DOCS PENDENTES">DOCS PENDENTES</option>
                   </select>
@@ -665,7 +665,7 @@ function App() {
                   <td>{renderCell(student, 'cpf')}</td>
                   <td>{renderCell(student, 'turma', 'select', ['Manhã', 'Tarde'])}</td>
                   <td>{renderCell(student, 'idade')}</td>
-                  <td>{renderCell(student, 'situacao', 'select', ['MATRICULADO', 'DESISTENTE', 'ELIMINADO', 'REPROVADO', 'ASSINAR TERMO', 'DOCS PENDENTES'])}</td>
+                  <td>{renderCell(student, 'situacao', 'select', ['MATRICULADO', 'DESISTENTE', 'ELIMINADO', 'ASSINAR TERMO', 'DOCS PENDENTES'])}</td>
                   <td>{renderCell(student, 'responsavel', 'select', ['', ...responsaveisList])}</td>
                   <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', minWidth: '200px', maxWidth: '350px' }}>{renderCell(student, 'observacoes')}</td>
                 </tr>
