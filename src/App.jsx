@@ -171,7 +171,7 @@ function App() {
 
   const stats = useMemo(() => {
     return {
-      total: students.length,
+      total: students.filter(s => s.situacao !== 'DESISTENTE' && s.situacao !== 'ELIMINADO').length,
       manha: students.filter(s => s.turma === 'Manhã').length,
       tarde: students.filter(s => s.turma === 'Tarde').length,
       desistentes: students.filter(s => s.situacao === 'DESISTENTE' || s.situacao === 'ELIMINADO').length,
@@ -448,7 +448,7 @@ function App() {
 
       <div className="stats-grid">
         <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ turma: 'Todas', situacao: 'Todas', genero: 'Todos', responsavel: '' })}>
-          <h3>Total de Alunos</h3>
+          <h3>Total em Andamento</h3>
           <span className="value">{stats.total}</span>
         </div>
         <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ turma: 'Manhã' })}>
