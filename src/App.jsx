@@ -187,7 +187,7 @@ function App() {
       return;
     }
 
-    const headers = ["Nome", "Gênero", "CPF", "Turma", "Idade", "Situação", "Responsável", "Observações"];
+    const headers = ["Nome", "Sexo", "CPF", "Turma", "Idade", "Situação", "Responsável", "Observações"];
     
     const escapeCsv = (str) => {
       if (!str) return '""';
@@ -516,7 +516,7 @@ function App() {
           </div>
 
           <div className="filter-group">
-            <label>Gênero</label>
+            <label>Sexo</label>
             <select className="filter-select" value={filters.genero} onChange={e => setFilters({...filters, genero: e.target.value})}>
               <option value="Todos">Todos</option>
               <option value="MULHER">MULHER</option>
@@ -592,7 +592,7 @@ function App() {
               <tr>
                 <th style={{ width: '30px', minWidth: '30px', maxWidth: '30px', textAlign: 'center', padding: '0' }}>#</th>
                 <th>Nome</th>
-                <th>Gênero</th>
+                <th>Sexo</th>
                 <th>CPF</th>
                 <th>Turma</th>
                 <th>Idade</th>
