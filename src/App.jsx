@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { collection, addDoc, updateDoc, doc, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { db, auth } from './firebase';
@@ -40,6 +40,16 @@ function App() {
 
   // Estado para menu de contexto (Exclusão)
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, student: null });
+
+  // Referência para rolagem suave
+  const filtersRef = useRef(null);
+
+  const handleCardClick = (filterUpdates) => {
+    setFilters(prev => ({ ...prev, ...filterUpdates }));
+    if (filtersRef.current) {
+      filtersRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = () => setContextMenu({ visible: false, x: 0, y: 0, student: null });
@@ -127,7 +137,10 @@ function App() {
                             student.cpf.includes(searchTerm);
       
       const matchesTurma = filters.turma === 'Todas' || student.turma === filters.turma;
-      const matchesSituacao = filters.situacao === 'Todas' || student.situacao === filters.situacao;
+      let matchesSituacao = filters.situacao === 'Todas' || student.situacao === filters.situacao;
+      if (filters.situacao === 'DESISTENTES_E_ELIMINADOS') {
+        matchesSituacao = student.situacao === 'DESISTENTE' || student.situacao === 'ELIMINADO';
+      }
       const matchesGenero = filters.genero === 'Todos' || student.genero === filters.genero;
       
       const resVal = student.responsavel ? student.responsavel.toLowerCase() : '';
@@ -161,7 +174,7 @@ function App() {
       total: students.length,
       manha: students.filter(s => s.turma === 'Manhã').length,
       tarde: students.filter(s => s.turma === 'Tarde').length,
-      desistentes: students.filter(s => s.situacao === 'DESISTENTE').length,
+      desistentes: students.filter(s => s.situacao === 'DESISTENTE' || s.situacao === 'ELIMINADO').length,
       matriculados: students.filter(s => s.situacao === 'MATRICULADO').length,
       docsPendentes: students.filter(s => s.situacao === 'DOCS PENDENTES').length,
       assinarTermo: students.filter(s => s.situacao === 'ASSINAR TERMO').length,
@@ -434,37 +447,37 @@ function App() {
       </header>
 
       <div className="stats-grid">
-        <div className="glass-panel stat-card">
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ turma: 'Todas', situacao: 'Todas', genero: 'Todos', responsavel: '' })}>
           <h3>Total de Alunos</h3>
           <span className="value">{stats.total}</span>
         </div>
-        <div className="glass-panel stat-card">
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ turma: 'Manhã' })}>
           <h3>Turma Manhã</h3>
           <span className="value">{stats.manha}</span>
         </div>
-        <div className="glass-panel stat-card">
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ turma: 'Tarde' })}>
           <h3>Turma Tarde</h3>
           <span className="value">{stats.tarde}</span>
         </div>
-        <div className="glass-panel stat-card">
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: 'MATRICULADO' })}>
           <h3>Matriculados</h3>
           <span className="value" style={{color: 'var(--success-color)'}}>{stats.matriculados}</span>
         </div>
-        <div className="glass-panel stat-card">
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: 'DOCS PENDENTES' })}>
           <h3>Docs Pendentes</h3>
           <span className="value" style={{color: 'var(--warning-color)'}}>{stats.docsPendentes}</span>
         </div>
-        <div className="glass-panel stat-card">
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: 'ASSINAR TERMO' })}>
           <h3>Assinar Termo</h3>
           <span className="value" style={{color: 'var(--primary-color)'}}>{stats.assinarTermo}</span>
         </div>
-        <div className="glass-panel stat-card">
-          <h3>Desistentes</h3>
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: 'DESISTENTES_E_ELIMINADOS' })}>
+          <h3>Desistentes e Eliminados</h3>
           <span className="value" style={{color: 'var(--danger-color)'}}>{stats.desistentes}</span>
         </div>
       </div>
 
-      <div className="glass-panel">
+      <div className="glass-panel" ref={filtersRef} style={{ scrollMarginTop: '2rem' }}>
         <div className="controls">
           <input 
             type="text" 
@@ -493,9 +506,12 @@ function App() {
               <option value="MATRICULADO">MATRICULADO</option>
               <option value="DESISTENTE">DESISTENTE</option>
               <option value="ELIMINADO">ELIMINADO</option>
-              <option value="REPROVADO">REPROVADO</option>
+
               <option value="ASSINAR TERMO">ASSINAR TERMO</option>
               <option value="DOCS PENDENTES">DOCS PENDENTES</option>
+              {filters.situacao === 'DESISTENTES_E_ELIMINADOS' && (
+                <option value="DESISTENTES_E_ELIMINADOS" style={{ display: 'none' }}>Desistentes e Eliminados</option>
+              )}
             </select>
           </div>
 
@@ -542,6 +558,21 @@ function App() {
               {filteredStudents.length} {filteredStudents.length === 1 ? 'Aluno' : 'Alunos'}
             </div>
           </div>
+
+          <div className="filter-group">
+            <label style={{ visibility: 'hidden' }}>Ação</label>
+            <button 
+              className="btn" 
+              style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger-color)', border: '1px solid var(--danger-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.6rem 1rem', fontWeight: 'bold', borderRadius: '6px' }}
+              onClick={() => {
+                setSearchTerm('');
+                setFilters({ turma: 'Todas', situacao: 'Todas', genero: 'Todos', responsavel: '', ordenarPor: 'nomeAsc' });
+              }}
+              title="Remover todos os filtros e mostrar todos os alunos"
+            >
+              <i className="fas fa-eraser"></i> Limpar Filtros
+            </button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.5rem', marginTop: '1rem' }}>
@@ -551,7 +582,7 @@ function App() {
             onClick={exportToCSV}
             title="Baixar planilha com os alunos listados abaixo"
           >
-            <i className="fas fa-file-excel"></i> Exportar CSV (Excel)
+            <i className="fas fa-file-excel"></i> Exportar CSV
           </button>
         </div>
 

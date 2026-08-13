@@ -177,9 +177,6 @@ body {
 
 /* Table */
 .table-wrapper {
-  overflow-x: auto;
-  overflow-y: auto;
-  max-height: 65vh;
   border-radius: 12px;
   border: 1px solid var(--border-color);
   background: var(--bg-panel);
