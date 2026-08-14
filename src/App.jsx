@@ -15,6 +15,7 @@ function App() {
   // Configurações
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [newResponsavel, setNewResponsavel] = useState('');
+  const [isIdadeModalOpen, setIsIdadeModalOpen] = useState(false);
 
   // Filtros Avançados
   const [searchTerm, setSearchTerm] = useState('');
@@ -146,11 +147,20 @@ function App() {
       const resVal = student.responsavel ? student.responsavel.toLowerCase() : '';
       const matchesResponsavel = !filters.responsavel || resVal.includes(filters.responsavel.toLowerCase());
 
-      return matchesSearch && matchesTurma && matchesSituacao && matchesGenero && matchesResponsavel;
+      let matchesIdadeFiltro = true;
+      if (filters.ordenarPor === 'menor18') {
+        const idade = parseInt(student.idade);
+        matchesIdadeFiltro = !isNaN(idade) && idade < 18;
+      } else if (filters.ordenarPor === 'maior18') {
+        const idade = parseInt(student.idade);
+        matchesIdadeFiltro = !isNaN(idade) && idade >= 18;
+      }
+
+      return matchesSearch && matchesTurma && matchesSituacao && matchesGenero && matchesResponsavel && matchesIdadeFiltro;
     });
 
     result.sort((a, b) => {
-      if (filters.ordenarPor === 'nomeAsc') {
+      if (filters.ordenarPor === 'nomeAsc' || filters.ordenarPor === 'menor18' || filters.ordenarPor === 'maior18') {
         return a.nome.localeCompare(b.nome);
       } 
       else if (filters.ordenarPor === 'idadeAsc' || filters.ordenarPor === 'idadeDesc') {
@@ -179,6 +189,21 @@ function App() {
       docsPendentes: students.filter(s => s.situacao === 'DOCS PENDENTES').length,
       assinarTermo: students.filter(s => s.situacao === 'ASSINAR TERMO').length,
     };
+  }, [students]);
+
+  const ageStats = useMemo(() => {
+    const matriculadosManha = students.filter(s => s.situacao === 'MATRICULADO' && s.turma === 'Manhã' && !isNaN(parseInt(s.idade)));
+    const matriculadosTarde = students.filter(s => s.situacao === 'MATRICULADO' && s.turma === 'Tarde' && !isNaN(parseInt(s.idade)));
+
+    const avgManha = matriculadosManha.length > 0 
+      ? Math.round(matriculadosManha.reduce((acc, curr) => acc + parseInt(curr.idade), 0) / matriculadosManha.length) 
+      : 0;
+      
+    const avgTarde = matriculadosTarde.length > 0 
+      ? Math.round(matriculadosTarde.reduce((acc, curr) => acc + parseInt(curr.idade), 0) / matriculadosTarde.length) 
+      : 0;
+
+    return { avgManha, avgTarde };
   }, [students]);
 
   const exportToCSV = () => {
@@ -544,11 +569,23 @@ function App() {
           </div>
 
           <div className="filter-group">
-            <label>Idade</label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              Idade
+              <button 
+                type="button"
+                onClick={() => setIsIdadeModalOpen(true)}
+                style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem', padding: 0 }}
+                title="Ver média de idade"
+              >
+                <i className="fas fa-info-circle"></i>
+              </button>
+            </label>
             <select className="filter-select" value={filters.ordenarPor} onChange={e => setFilters({...filters, ordenarPor: e.target.value})}>
               <option value="nomeAsc">Padrão</option>
               <option value="idadeAsc">Mais Novo</option>
               <option value="idadeDesc">Mais Velho</option>
+              <option value="menor18">Menor de 18</option>
+              <option value="maior18">Maior de 18</option>
             </select>
           </div>
 
@@ -785,6 +822,41 @@ function App() {
               ) : (
                 <p style={{ color: 'var(--text-secondary)', textAlign: 'center' }}>Nenhum responsável cadastrado.</p>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Média de Idade */}
+      {isIdadeModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsIdadeModalOpen(false)}>
+          <div className="glass-panel modal" onClick={e => e.stopPropagation()}>
+            <h2 style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between' }}>
+              Média de Idade
+              <button className="filter-btn" onClick={() => setIsIdadeModalOpen(false)}>X</button>
+            </h2>
+            
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              A média é calculada <strong>exclusivamente</strong> para os alunos com situação <strong>MATRICULADO</strong>.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <span style={{ fontWeight: '600', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <i className="fas fa-sun" style={{ color: '#FCD34D' }}></i> Turma Manhã
+                </span>
+                <span style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
+                  {ageStats.avgManha > 0 ? `${ageStats.avgManha} anos` : 'N/A'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <span style={{ fontWeight: '600', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <i className="fas fa-moon" style={{ color: '#9CA3AF' }}></i> Turma Tarde
+                </span>
+                <span style={{ fontSize: '1.3rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
+                  {ageStats.avgTarde > 0 ? `${ageStats.avgTarde} anos` : 'N/A'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
