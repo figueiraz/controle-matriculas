@@ -94,7 +94,7 @@ function App() {
   
   // Estado para a linha de Novo Aluno
   const initialFormData = {
-    nome: '', genero: 'MULHER', cpf: '', turma: 'Manhã', idade: '', responsavel: '', situacao: 'MATRICULADO', observacoes: ''
+    nome: '', telefone: '', genero: 'MULHER', cpf: '', turma: 'Manhã', idade: '', responsavel: '', situacao: 'MATRICULADO', observacoes: ''
   };
   const [formData, setFormData] = useState(initialFormData);
   const [isAddingNew, setIsAddingNew] = useState(false);
@@ -278,7 +278,7 @@ function App() {
       return;
     }
 
-    const headers = ["Nome", "Sexo", "CPF", "Turma", "Idade", "Situação", "Responsável", "Observações"];
+    const headers = ["Nome", "Telefone", "Sexo", "CPF", "Turma", "Idade", "Situação", "Responsável", "Observações"];
     
     const escapeCsv = (str) => {
       if (!str) return '""';
@@ -288,6 +288,7 @@ function App() {
 
     const rows = filteredStudents.map(student => [
       escapeCsv(student.nome),
+      escapeCsv(student.telefone),
       escapeCsv(student.genero),
       escapeCsv(student.cpf),
       escapeCsv(student.turma),
@@ -434,13 +435,13 @@ function App() {
 
     let displayValue = student[field] || '-';
     
-    const isCopyField = field === 'nome' || field === 'cpf';
+    const isCopyField = field === 'nome' || field === 'cpf' || field === 'telefone';
     
     const handleCellClick = () => {
       if (isCopyField) {
         if (student[field]) {
           navigator.clipboard.writeText(student[field]);
-          setCopiedMsg(`${field === 'nome' ? 'Nome' : 'CPF'} copiado: ${student[field]}`);
+          setCopiedMsg(`${field === 'nome' ? 'Nome' : field === 'telefone' ? 'Telefone' : 'CPF'} copiado: ${student[field]}`);
           setTimeout(() => setCopiedMsg(''), 2500);
         }
       } else {
@@ -479,8 +480,21 @@ function App() {
         onDoubleClick={handleCellDoubleClick}
         className="editable-cell"
         title={tooltipMsg}
+        style={field === 'telefone' ? { display: 'flex', alignItems: 'center', gap: '0.5rem' } : {}}
       >
-        {field === 'nome' ? <strong>{displayValue}</strong> : displayValue}
+        {field === 'telefone' && displayValue !== '-' && (
+          <a 
+            href={`https://wa.me/55${String(displayValue).replace(/\D/g, '')}`} 
+            target="_blank" 
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{ color: '#25D366', fontSize: '1.2rem', display: 'flex', alignItems: 'center', textDecoration: 'none' }}
+            title="Abrir WhatsApp Web"
+          >
+            <i className="fab fa-whatsapp"></i>
+          </a>
+        )}
+        {field === 'nome' ? <strong>{displayValue}</strong> : <span>{displayValue}</span>}
       </div>
     );
   };
@@ -501,16 +515,16 @@ function App() {
           <h1>Painel de Matrículas</h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.2rem', fontSize: '1.1rem', letterSpacing: '0.05em' }}>Unidade POA</p>
         </div>
-        <div className="header-actions">
+        <div className="header-actions" style={{ position: 'relative' }}>
           {onlineUsers.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', background: 'rgba(16, 185, 129, 0.1)', padding: '0.5rem 0.8rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+            <div style={{ position: 'absolute', bottom: '100%', right: 0, marginBottom: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', background: 'rgba(16, 185, 129, 0.1)', padding: '0.4rem 0.8rem', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.3)', whiteSpace: 'nowrap', zIndex: 10 }}>
               {onlineUsers.map(u => (
-                <div key={u.uid} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <div key={u.uid} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'flex-end' }}>
                   <span style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
                     <span style={{ width: '8px', height: '8px', backgroundColor: '#10B981', borderRadius: '50%', boxShadow: '0 0 5px #10B981' }}></span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Online:</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Online:</span>
                   </span>
-                  <span style={{ fontSize: '0.85rem', color: '#10B981', fontWeight: '600' }} title={u.email}>
+                  <span style={{ fontSize: '0.8rem', color: '#10B981', fontWeight: '600' }} title={u.email}>
                     {u.email.split('@')[0]}
                   </span>
                 </div>
@@ -724,6 +738,7 @@ function App() {
               <tr>
                 <th style={{ width: '30px', minWidth: '30px', maxWidth: '30px', textAlign: 'center', padding: '0' }}>#</th>
                 <th>Nome</th>
+                <th>Telefone</th>
                 <th>Sexo</th>
                 <th>CPF</th>
                 <th>Turma</th>
@@ -740,7 +755,7 @@ function App() {
                   style={{ backgroundColor: 'rgba(59, 130, 246, 0.05)', borderBottom: '2px solid var(--primary-color)', cursor: 'pointer', transition: 'all 0.2s' }} 
                   onClick={() => setIsAddingNew(true)}
                 >
-                  <td colSpan="9" style={{ padding: '1rem', color: 'var(--primary-color)', fontWeight: '600', textAlign: 'center' }}>
+                  <td colSpan="10" style={{ padding: '1rem', color: 'var(--primary-color)', fontWeight: '600', textAlign: 'center' }}>
                     + Adicionar Novo Aluno
                   </td>
                 </tr>
@@ -750,6 +765,9 @@ function App() {
                   <td style={{ width: '30px', minWidth: '30px', maxWidth: '30px', textAlign: 'center', color: 'var(--text-secondary)', padding: '0' }}>-</td>
                   <td>
                     <input autoFocus type="text" className="inline-edit-input" placeholder="Digite o nome..." value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} onKeyDown={handleNewRowKeyDown} />
+                  </td>
+                  <td>
+                    <input type="text" className="inline-edit-input" placeholder="Telefone..." value={formData.telefone} onChange={e => setFormData({...formData, telefone: e.target.value})} onKeyDown={handleNewRowKeyDown} />
                   </td>
                 <td>
                   <select className="inline-edit-input" value={formData.genero} onChange={e => setFormData({...formData, genero: e.target.value})} onKeyDown={handleNewRowKeyDown}>
@@ -791,7 +809,7 @@ function App() {
                 </td>
               </tr>
               <tr style={{ backgroundColor: 'rgba(59, 130, 246, 0.05)', borderBottom: '2px solid var(--primary-color)' }}>
-                <td colSpan="9" style={{ padding: '0.75rem 1rem' }}>
+                <td colSpan="10" style={{ padding: '0.75rem 1rem' }}>
                   <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                     <button 
                       className="btn" 
@@ -823,7 +841,8 @@ function App() {
                   onContextMenu={(e) => handleContextMenu(e, student)}
                 >
                   <td style={{ width: '30px', minWidth: '30px', maxWidth: '30px', textAlign: 'center', fontWeight: 'bold', color: 'var(--text-secondary)', padding: '0' }}>{index + 1}</td>
-                  <td>{renderCell(student, 'nome')}</td>
+                  <td style={{ whiteSpace: 'normal', wordBreak: 'break-word', minWidth: '150px', maxWidth: '250px' }}>{renderCell(student, 'nome')}</td>
+                  <td>{renderCell(student, 'telefone')}</td>
                   <td>{renderCell(student, 'genero', 'select', ['MULHER', 'HOMEM', 'OUTRO'])}</td>
                   <td>{renderCell(student, 'cpf')}</td>
                   <td>{renderCell(student, 'turma', 'select', ['Manhã', 'Tarde'])}</td>
@@ -834,7 +853,7 @@ function App() {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan="9" style={{textAlign: 'center', padding: '2rem'}}>Nenhum aluno encontrado com esses filtros.</td>
+                  <td colSpan="10" style={{textAlign: 'center', padding: '2rem'}}>Nenhum aluno encontrado com esses filtros.</td>
                 </tr>
               )}
             </tbody>
