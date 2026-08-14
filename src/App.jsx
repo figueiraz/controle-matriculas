@@ -5,6 +5,71 @@ import { db, auth } from './firebase';
 import { STATUS_COLORS, ROW_COLORS } from './mockData';
 import Login from './Login';
 
+const MultiSelectDropdown = ({ label, options, selected, onChange, iconNode, placeholder = "Todas" }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="filter-group" style={{ position: 'relative' }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+        {label}
+        {iconNode}
+      </label>
+      <div 
+        className="filter-select" 
+        style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', userSelect: 'none' }}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {selected.length === 0 ? placeholder : 
+           selected.length === 1 ? (options.find(o => (o.value || o) === selected[0])?.label || selected[0]) : 
+           `${selected.length} selecionadas`}
+        </span>
+        <i className={`fas fa-chevron-${isOpen ? 'up' : 'down'}`} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}></i>
+      </div>
+      
+      {isOpen && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setIsOpen(false)}></div>
+          <div style={{ 
+            position: 'absolute', 
+            top: '100%', left: 0, width: '100%', 
+            background: '#1e293b', 
+            border: '1px solid var(--border-color)', 
+            borderRadius: '8px', 
+            marginTop: '0.5rem', 
+            zIndex: 50,
+            boxShadow: '0 8px 25px rgba(0,0,0,0.5)',
+            display: 'flex', flexDirection: 'column',
+            padding: '0.5rem 0'
+          }}>
+            {options.map(opt => {
+              const val = opt.value !== undefined ? opt.value : opt;
+              const lbl = opt.label !== undefined ? opt.label : opt;
+              return (
+                <label key={val} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.7rem 1rem', cursor: 'pointer', transition: 'background 0.2s', margin: 0, textTransform: 'none', fontWeight: '500', fontSize: '0.9rem', color: 'var(--text-primary)' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                  <input 
+                    type="checkbox" 
+                    checked={selected.includes(val)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        onChange([...selected, val]);
+                      } else {
+                        onChange(selected.filter(s => s !== val));
+                      }
+                    }}
+                    style={{ accentColor: 'var(--primary-color)', width: '1.2rem', height: '1.2rem', cursor: 'pointer' }}
+                  />
+                  {lbl}
+                </label>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -20,11 +85,11 @@ function App() {
   // Filtros Avançados
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
-    turma: 'Todas',
-    situacao: 'Todas',
-    genero: 'Todos',
-    responsavel: '',
-    ordenarPor: 'nomeAsc'
+    turma: [],
+    situacao: [], 
+    genero: [],
+    responsavel: [],
+    ordenarPor: []
   });
   
   // Estado para a linha de Novo Aluno
@@ -137,21 +202,21 @@ function App() {
       const matchesSearch = student.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             student.cpf.includes(searchTerm);
       
-      const matchesTurma = filters.turma === 'Todas' || student.turma === filters.turma;
-      let matchesSituacao = filters.situacao === 'Todas' || student.situacao === filters.situacao;
-      if (filters.situacao === 'DESISTENTES_E_ELIMINADOS') {
-        matchesSituacao = student.situacao === 'DESISTENTE' || student.situacao === 'ELIMINADO';
-      }
-      const matchesGenero = filters.genero === 'Todos' || student.genero === filters.genero;
+      const matchesTurma = filters.turma.length === 0 || filters.turma.includes(student.turma);
       
-      const resVal = student.responsavel ? student.responsavel.toLowerCase() : '';
-      const matchesResponsavel = !filters.responsavel || resVal.includes(filters.responsavel.toLowerCase());
+      const matchesSituacao = filters.situacao.length === 0 || filters.situacao.includes(student.situacao);
+      
+      const matchesGenero = filters.genero.length === 0 || filters.genero.includes(student.genero);
+      
+      const matchesResponsavel = filters.responsavel.length === 0 || filters.responsavel.includes(student.responsavel);
 
       let matchesIdadeFiltro = true;
-      if (filters.ordenarPor === 'menor18') {
+      if (filters.ordenarPor.includes('menor18') && filters.ordenarPor.includes('maior18')) {
+        matchesIdadeFiltro = true;
+      } else if (filters.ordenarPor.includes('menor18')) {
         const idade = parseInt(student.idade);
         matchesIdadeFiltro = !isNaN(idade) && idade < 18;
-      } else if (filters.ordenarPor === 'maior18') {
+      } else if (filters.ordenarPor.includes('maior18')) {
         const idade = parseInt(student.idade);
         matchesIdadeFiltro = !isNaN(idade) && idade >= 18;
       }
@@ -160,14 +225,15 @@ function App() {
     });
 
     result.sort((a, b) => {
-      if (filters.ordenarPor === 'nomeAsc' || filters.ordenarPor === 'menor18' || filters.ordenarPor === 'maior18') {
+      const orderOpt = filters.ordenarPor.find(o => ['nomeAsc', 'idadeAsc', 'idadeDesc'].includes(o)) || 'nomeAsc';
+      if (orderOpt === 'nomeAsc') {
         return a.nome.localeCompare(b.nome);
       } 
-      else if (filters.ordenarPor === 'idadeAsc' || filters.ordenarPor === 'idadeDesc') {
-        const idadeA = parseInt(a.idade) || (filters.ordenarPor === 'idadeAsc' ? 999 : -1);
-        const idadeB = parseInt(b.idade) || (filters.ordenarPor === 'idadeAsc' ? 999 : -1);
+      else if (orderOpt === 'idadeAsc' || orderOpt === 'idadeDesc') {
+        const idadeA = parseInt(a.idade) || (orderOpt === 'idadeAsc' ? 999 : -1);
+        const idadeB = parseInt(b.idade) || (orderOpt === 'idadeAsc' ? 999 : -1);
         
-        if (filters.ordenarPor === 'idadeAsc') {
+        if (orderOpt === 'idadeAsc') {
           return idadeA - idadeB;
         } else {
           return idadeB - idadeA;
@@ -472,31 +538,31 @@ function App() {
       </header>
 
       <div className="stats-grid">
-        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ turma: 'Todas', situacao: 'Todas', genero: 'Todos', responsavel: '' })}>
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ turma: [], situacao: [], genero: [], responsavel: [], ordenarPor: [] })}>
           <h3>Total em Andamento</h3>
           <span className="value">{stats.total}</span>
         </div>
-        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ turma: 'Manhã' })}>
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ turma: ['Manhã'] })}>
           <h3>Turma Manhã</h3>
           <span className="value">{stats.manha}</span>
         </div>
-        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ turma: 'Tarde' })}>
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ turma: ['Tarde'] })}>
           <h3>Turma Tarde</h3>
           <span className="value">{stats.tarde}</span>
         </div>
-        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: 'MATRICULADO' })}>
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: ['MATRICULADO'] })}>
           <h3>Matriculados</h3>
           <span className="value" style={{color: 'var(--success-color)'}}>{stats.matriculados}</span>
         </div>
-        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: 'DOCS PENDENTES' })}>
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: ['DOCS PENDENTES'] })}>
           <h3>Docs Pendentes</h3>
           <span className="value" style={{color: 'var(--warning-color)'}}>{stats.docsPendentes}</span>
         </div>
-        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: 'ASSINAR TERMO' })}>
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: ['ASSINAR TERMO'] })}>
           <h3>Assinar Termo</h3>
           <span className="value" style={{color: 'var(--primary-color)'}}>{stats.assinarTermo}</span>
         </div>
-        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: 'DESISTENTES_E_ELIMINADOS' })}>
+        <div className="glass-panel stat-card" style={{ cursor: 'pointer' }} onClick={() => handleCardClick({ situacao: ['DESISTENTE', 'ELIMINADO'] })}>
           <h3>Desistentes e Eliminados</h3>
           <span className="value" style={{color: 'var(--danger-color)'}}>{stats.desistentes}</span>
         </div>
@@ -514,45 +580,34 @@ function App() {
           />
         </div>
 
-        <div className="filters-panel">
-          <div className="filter-group">
-            <label>Turma</label>
-            <select className="filter-select" value={filters.turma} onChange={e => setFilters({...filters, turma: e.target.value})}>
-              <option value="Todas">Todas</option>
-              <option value="Manhã">Manhã</option>
-              <option value="Tarde">Tarde</option>
-            </select>
-          </div>
+        <div className="filters-panel" style={{ position: 'relative', zIndex: 20 }}>
+          <MultiSelectDropdown 
+            label="Turma" 
+            options={['Manhã', 'Tarde']} 
+            selected={filters.turma} 
+            onChange={(val) => setFilters({...filters, turma: val})} 
+          />
           
-          <div className="filter-group">
-            <label>Situação</label>
-            <select className="filter-select" value={filters.situacao} onChange={e => setFilters({...filters, situacao: e.target.value})}>
-              <option value="Todas">Todas</option>
-              <option value="MATRICULADO">MATRICULADO</option>
-              <option value="DESISTENTE">DESISTENTE</option>
-              <option value="ELIMINADO">ELIMINADO</option>
+          <MultiSelectDropdown 
+            label="Situação" 
+            options={['MATRICULADO', 'DESISTENTE', 'ELIMINADO', 'ASSINAR TERMO', 'DOCS PENDENTES']} 
+            selected={filters.situacao} 
+            onChange={(val) => setFilters({...filters, situacao: val})} 
+          />
 
-              <option value="ASSINAR TERMO">ASSINAR TERMO</option>
-              <option value="DOCS PENDENTES">DOCS PENDENTES</option>
-              {filters.situacao === 'DESISTENTES_E_ELIMINADOS' && (
-                <option value="DESISTENTES_E_ELIMINADOS" style={{ display: 'none' }}>Desistentes e Eliminados</option>
-              )}
-            </select>
-          </div>
+          <MultiSelectDropdown 
+            label="Sexo" 
+            options={['MULHER', 'HOMEM', 'OUTRO']} 
+            selected={filters.genero} 
+            onChange={(val) => setFilters({...filters, genero: val})} 
+          />
 
-          <div className="filter-group">
-            <label>Sexo</label>
-            <select className="filter-select" value={filters.genero} onChange={e => setFilters({...filters, genero: e.target.value})}>
-              <option value="Todos">Todos</option>
-              <option value="MULHER">MULHER</option>
-              <option value="HOMEM">HOMEM</option>
-              <option value="OUTRO">OUTRO</option>
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              Responsável
+          <MultiSelectDropdown 
+            label="Responsável" 
+            options={responsaveisList} 
+            selected={filters.responsavel} 
+            onChange={(val) => setFilters({...filters, responsavel: val})} 
+            iconNode={
               <button 
                 type="button"
                 onClick={() => setIsSettingsOpen(true)}
@@ -561,16 +616,21 @@ function App() {
               >
                 <i className="fas fa-pencil-alt"></i>
               </button>
-            </label>
-            <select className="filter-select" value={filters.responsavel} onChange={e => setFilters({...filters, responsavel: e.target.value})}>
-              <option value="">Todos</option>
-              {responsaveisList.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-          </div>
+            }
+          />
 
-          <div className="filter-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              Idade
+          <MultiSelectDropdown 
+            label="Idade" 
+            options={[
+              { value: 'nomeAsc', label: 'Padrão' },
+              { value: 'idadeAsc', label: 'Mais Novo' },
+              { value: 'idadeDesc', label: 'Mais Velho' },
+              { value: 'menor18', label: 'Menor de 18' },
+              { value: 'maior18', label: 'Maior de 18' }
+            ]} 
+            selected={filters.ordenarPor} 
+            onChange={(val) => setFilters({...filters, ordenarPor: val})} 
+            iconNode={
               <button 
                 type="button"
                 onClick={() => setIsIdadeModalOpen(true)}
@@ -579,15 +639,8 @@ function App() {
               >
                 <i className="fas fa-info-circle"></i>
               </button>
-            </label>
-            <select className="filter-select" value={filters.ordenarPor} onChange={e => setFilters({...filters, ordenarPor: e.target.value})}>
-              <option value="nomeAsc">Padrão</option>
-              <option value="idadeAsc">Mais Novo</option>
-              <option value="idadeDesc">Mais Velho</option>
-              <option value="menor18">Menor de 18</option>
-              <option value="maior18">Maior de 18</option>
-            </select>
-          </div>
+            }
+          />
 
           <div className="filter-group">
             <label>Resultados</label>
@@ -603,13 +656,55 @@ function App() {
               style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger-color)', border: '1px solid var(--danger-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.6rem 1rem', fontWeight: 'bold', borderRadius: '6px' }}
               onClick={() => {
                 setSearchTerm('');
-                setFilters({ turma: 'Todas', situacao: 'Todas', genero: 'Todos', responsavel: '', ordenarPor: 'nomeAsc' });
+                setFilters({ turma: [], situacao: [], genero: [], responsavel: [], ordenarPor: [] });
               }}
               title="Remover todos os filtros e mostrar todos os alunos"
             >
               <i className="fas fa-eraser"></i> Limpar Filtros
             </button>
           </div>
+
+          {/* FILTROS ATIVOS */}
+          {(() => {
+            const activeFilters = [];
+            if (searchTerm) activeFilters.push(`Busca: ${searchTerm}`);
+            if (filters.turma.length > 0) {
+              filters.turma.forEach(t => activeFilters.push(`Turma: ${t}`));
+            }
+            if (filters.situacao.length > 0) {
+              filters.situacao.forEach(sit => activeFilters.push(`Situação: ${sit}`));
+            }
+            if (filters.genero.length > 0) {
+              filters.genero.forEach(g => activeFilters.push(`Sexo: ${g}`));
+            }
+            if (filters.responsavel.length > 0) {
+              filters.responsavel.forEach(r => activeFilters.push(`Responsável: ${r}`));
+            }
+            if (filters.ordenarPor.length > 0) {
+              filters.ordenarPor.forEach(o => {
+                if (o === 'menor18') activeFilters.push(`Idade: Menor de 18`);
+                if (o === 'maior18') activeFilters.push(`Idade: Maior de 18`);
+                if (o === 'idadeAsc') activeFilters.push(`Ordem: Mais Novo`);
+                if (o === 'idadeDesc') activeFilters.push(`Ordem: Mais Velho`);
+                // Ignoramos o 'nomeAsc' por ser o Padrão
+              });
+            }
+
+            if (activeFilters.length === 0) return null;
+
+            return (
+              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem', padding: '0.75rem 1rem', backgroundColor: 'rgba(59, 130, 246, 0.05)', borderRadius: '8px', border: '1px dashed rgba(59, 130, 246, 0.4)', alignItems: 'center' }}>
+                <span style={{ color: 'var(--primary-color)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', marginRight: '0.5rem', fontWeight: '600' }}>
+                  <i className="fas fa-filter" style={{ marginRight: '0.4rem' }}></i> Filtros Ativos:
+                </span>
+                {activeFilters.map((f, idx) => (
+                  <div key={idx} style={{ backgroundColor: 'var(--primary-color)', color: 'white', padding: '0.3rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                    {f}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '1.5rem', marginTop: '1rem' }}>
